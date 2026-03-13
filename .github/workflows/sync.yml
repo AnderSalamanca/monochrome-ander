@@ -2,18 +2,33 @@ name: Sincronizar con el autor original
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Esto se ejecuta todas las noches a las 00:00 UTC
-  workflow_dispatch: # Esto te permite darle a un botón para sincronizar manualmente
+    - cron: '0 0 * * *' # Cada noche a las 00:00
+  workflow_dispatch: # Botón manual
 
 jobs:
-  sync_with_upstream:
+  sync_latest_from_upstream:
     runs-on: ubuntu-latest
     steps:
-      - name: Sincronizar cambios
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
+      - name: Checkout target repo
+        uses: actions/checkout@v4
         with:
-          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          upstream_repository: monochrome-music/monochrome
-          upstream_branch: main
-          target_branch: main
-          test_mode: false
+          fetch-depth: 0
+
+      - name: Sincronizar con el original
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Configuramos el robot para que pueda usar git
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          
+          # Añadimos el repo original como fuente
+          git remote add upstream https://github.com/monochrome-music/monochrome.git
+          git fetch upstream
+          
+          # Forzamos la actualización de tu rama main con la del autor
+          git checkout main
+          git merge upstream/main --ff-only || (git checkout upstream/main -- . && git commit -m "Sync from upstream")
+          
+          # Subimos los cambios a tu GitHub
+          git push origin main
